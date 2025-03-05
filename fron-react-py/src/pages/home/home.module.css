@@ -62,15 +62,12 @@
   /* Estilização da tabela */
   .tabela {
 
-    text-align: center;
+    text-align: left;
     height: 275px;
-    width: 100%;
-    justify-content: space-between;
+    width: 88%;
+    justify-content: space-evenly;
     border-collapse: collapse;
     display: table; 
-    
-  
-   
-   
+
     
   }  
