@@ -3,15 +3,18 @@ import ResponsiveAppBar from "../../componets/topbarentrar/topbarentrar";
 import style from "../home/home.module.css";
 import listarTransacoesAPI from "../../services/transacao";
 import { MdDelete, MdEdit } from "react-icons/md";
-import { Modal, Button } from "react-bootstrap";
+import { Modal, Button, Form } from "react-bootstrap";
+import { Link } from "react-router-dom";
 
 export function Home() {
   const [transacoes, setTransacoes] = useState([]);
   const [descricao, setDescricao] = useState("");
   const [tipo, setTipo] = useState("Receita");
   const [valor, setValor] = useState("");
-  const [transacaoEditando, setTransacaoEditando] = useState(null); // Transação para edição
+
   const [showModal, setShowModal] = useState(false); // Modal de edição
+  const [transacaoEditando, setTransacaoEditando] = useState(null); // Transação para edição
+  console.log(transacaoEditando)
   const [showModalDeletar, setShowModalDeletar] = useState(false); // Modal de confirmação de deletar
   const [transacaoParaDeletar, setTransacaoParaDeletar] = useState(null); // Transação para deletar
 
@@ -27,43 +30,65 @@ export function Home() {
   // Função para adicionar uma transação
   const adicionarTransacao = async (e) => {
     e.preventDefault();
+
+    // Validação para garantir que todos os campos sejam preenchidos
     if (!descricao || !valor) return alert("Preencha todos os campos!");
 
     try {
+      // Criando a transação
       await listarTransacoesAPI.criarTransacao(1, { descricao, tipo, valor });
+
+      // Recarregando a lista de transações após a criação
       await carregarTransacoes();
+
+      // Limpando os campos após adicionar a transação
       setDescricao("");
       setValor("");
+      setTipo("Receita");  // Ou o valor que deseja resetar
     } catch (error) {
       console.error("Erro ao criar transação:", error);
     }
   };
 
-  // Função para editar uma transação
-  const editarTransacao = (transacao) => {
+  // Função para abrir o modal de editar
+  const abrirModalEditar = async (transacao) => {
     setTransacaoEditando(transacao);
     setDescricao(transacao.descricao);
     setTipo(transacao.tipo);
     setValor(Math.abs(transacao.valor).toString());
-    setShowModal(true); // Abrir modal de edição
+    setShowModal(true); // Abre o modal de edição
   };
 
+  // Função para editar uma transação
   const atualizarTransacao = async (e) => {
     e.preventDefault();
+
+    
     if (!descricao || !valor) return alert("Preencha todos os campos!");
 
+  
+    const transacaoAtualizada = {
+ 
+      tipo, 
+      valor: parseFloat(valor),
+      descricao,
+    
+    };
+
     try {
-      await listarTransacoesAPI.atualizarTransacao(transacaoEditando.id, {
-        descricao,
-        tipo: tipo.toLowerCase(),
-        valor: tipo === "Receita" ? parseFloat(valor) : -parseFloat(valor),
-      });
+      // Realiza a atualização da transação
+      await listarTransacoesAPI.atualizarTransacao(transacaoEditando.TransacoesId, transacaoAtualizada);
+
+
+      // Recarrega as transações após a atualização
       await carregarTransacoes();
+
+      // Limpa os campos de entrada
       setDescricao("");
       setTipo("Receita");
       setValor("");
-      setTransacaoEditando(null);
-      setShowModal(false); // Fechar o modal após a atualização
+      setTransacaoEditando(null); // Reseta o estado de transação editada
+      setShowModal(false); // Fecha o modal após a atualização
     } catch (error) {
       console.error("Erro ao atualizar transação:", error);
     }
@@ -71,7 +96,7 @@ export function Home() {
 
   const deletarTransacao = (id) => {
     setTransacaoParaDeletar(id);
-    setShowModalDeletar(true); // Abrir modal de confirmação de exclusão
+    setShowModalDeletar(true); // Abre o modal de confirmação de exclusão
   };
 
   const confirmarDeletarTransacao = async () => {
@@ -83,6 +108,12 @@ export function Home() {
     } catch (error) {
       console.error("Erro ao deletar transação:", error);
     }
+  };
+
+  // Função para fechar o modal
+  const fecharModal = () => {
+    setShowModal(false);
+    setShowModalDeletar(false);
   };
 
   useEffect(() => {
@@ -104,18 +135,18 @@ export function Home() {
               </tr>
             </thead>
             <tbody>
-              {transacoes.map((transacao) => (
-                <tr key={transacao.id}>
+              {transacoes.map((transacao, index) => (
+                <tr key={transacao.id || `transacao-${index}`}>
                   <td>{transacao.descricao}</td>
                   <td>{transacao.tipo}</td>
                   <td>R$ {transacao.valor.toFixed(2)}</td>
                   <td className={style.acoes}>
-                    <button className={style.botaoIcone} onClick={() => editarTransacao(transacao)}>
+                    <Link className={style.botaoIcone} onClick={() => abrirModalEditar(transacao)}>
                       <MdEdit className={style.iconeEditar} />
-                    </button>
-                    <button className={style.botaoIcone} onClick={() => deletarTransacao(transacao.id)}>
+                    </Link>
+                    <Link className={style.botaoIcone} onClick={() => deletarTransacao(transacao.id)}>
                       <MdDelete className={style.iconeDeletar} />
-                    </button>
+                    </Link>
                   </td>
                 </tr>
               ))}
@@ -123,7 +154,7 @@ export function Home() {
           </table>
         </div>
 
-        {/* Formulário para Adicionar Transação */}
+        {/* Formulário para Adicionar Transação (visível apenas quando não estiver editando) */}
         {!showModal && (
           <div className={style.Adcionar_corpo}>
             <h2 className={style.title}>Adicionar Transação</h2>
@@ -156,61 +187,77 @@ export function Home() {
             </form>
           </div>
         )}
+
+        {/* Modal de Edição de Transação */}
+        <Modal show={showModal} onHide={fecharModal} centered>
+          <Modal.Header closeButton>
+            <Modal.Title>Editar Transação</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Form onSubmit={atualizarTransacao}>
+              <Form.Group controlId="descricao" className="mb-3">
+                <Form.Label>Descrição</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="Descrição"
+                  value={descricao}
+                  onChange={(e) => setDescricao(e.target.value)}
+                />
+              </Form.Group>
+
+              <Form.Group controlId="tipo" className="mb-3">
+                <Form.Label>Tipo</Form.Label>
+                <Form.Select
+                  value={tipo}
+                  onChange={(e) => setTipo(e.target.value)}
+                >
+                  <option value="Receita">Receita</option>
+                  <option value="Despesa">Despesa</option>
+                </Form.Select>
+              </Form.Group>
+
+              <Form.Group controlId="valor" className="mb-3">
+                <Form.Label>Valor</Form.Label>
+                <Form.Control
+                  type="number"
+                  placeholder="Valor"
+                  value={valor}
+                  onChange={(e) => setValor(e.target.value)}
+                />
+              </Form.Group>
+
+              <Modal.Footer>
+                <Button variant="secondary" onClick={fecharModal}>
+                  Cancelar
+                </Button>
+                <Button variant="primary" type="submit">
+                  Atualizar
+                </Button>
+              </Modal.Footer>
+            </Form>
+          </Modal.Body>
+        </Modal>
+
+        {/* Modal de confirmação de exclusão */}
+        <Modal show={showModalDeletar} onHide={fecharModal}>
+          <Modal.Header closeButton>
+            <Modal.Title>Confirmar</Modal.Title>
+          </Modal.Header>
+
+          <Modal.Body>
+            Tem certeza que deseja deletar esta transação?
+          </Modal.Body>
+
+          <Modal.Footer>
+            <Button variant="secondary" onClick={fecharModal}>
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={confirmarDeletarTransacao}>
+              Deletar
+            </Button>
+          </Modal.Footer>
+        </Modal>
       </div>
-
-      {/* Modal de Edição de Transação */}
-      <Modal show={showModal} onHide={() => setShowModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Editar Transação</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <form className={style.form} onSubmit={atualizarTransacao}>
-            <input
-              type="text"
-              placeholder="Descrição"
-              value={descricao}
-              onChange={(e) => setDescricao(e.target.value)}
-              className={style.input}
-            />
-            <select
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
-              className={style.select}
-            >
-              <option value="Receita">Receita</option>
-              <option value="Despesa">Despesa</option>
-            </select>
-            <input
-              type="number"
-              placeholder="Valor"
-              value={valor}
-              onChange={(e) => setValor(e.target.value)}
-              className={style.input}
-            />
-            <button type="submit" className={style.button}>
-              Atualizar
-            </button>
-          </form>
-        </Modal.Body>
-      </Modal>
-
-      {/* Modal de Confirmação de Deletar Transação */}
-      <Modal show={showModalDeletar} onHide={() => setShowModalDeletar(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Excluir Transação</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <p>Tem certeza que deseja excluir esta transação?</p>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowModalDeletar(false)}>
-            Cancelar
-          </Button>
-          <Button variant="danger" onClick={confirmarDeletarTransacao}>
-            Excluir
-          </Button>
-        </Modal.Footer>
-      </Modal>
     </ResponsiveAppBar>
   );
 }
